@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跳转中...</title>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <style>
+        /* 保持原有样式不变 */
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #f5f7fa;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        .loading {
+            text-align: center;
+            padding: 30px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 20px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1E9FFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .message {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .error {
+            color: #ff4d4f;
+        }
+        .countdown {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        /* 微信引导页样式 */
+        .wechat-guide {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            max-width: 300px;
+            width: 100%;
+        }
+        .wechat-guide .title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .wechat-guide .desc {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .wechat-guide .steps {
+            text-align: left;
+            margin-bottom: 25px;
+        }
+        .wechat-guide .step {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .wechat-guide .step-number {
+            background-color: #1E9FFF;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .wechat-guide .open-btn {
+            background-color: #1E9FFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .wechat-guide .tips {
+            color: #999;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 微信引导页 -->
+    <div class="wechat-guide" id="wechatGuide">
+        <div class="title">请在浏览器中打开</div>
+        <div class="desc">当前页面无法在微信中直接打开，请按照以下步骤操作：</div>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-desc">点击右上角的 <strong>...</strong> 按钮</div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-desc">选择 <strong>在浏览器中打开</strong></div>
+            </div>
+        </div>
+        <button class="open-btn" onclick="alert('请点击微信右上角的三个点，选择"在浏览器中打开"')">
+            如何打开？
+        </button>
+        <div class="tips">若已在浏览器中打开，请刷新页面重试</div>
+    </div>
+
+    <!-- 加载跳转页面 -->
+    <div class="loading" id="loadingPage">
+        <div class="spinner"></div>
+        <div class="message" id="message">正在获取跳转地址...</div>
+        <div class="countdown" id="countdown"></div>
+    </div>
+
+    <script>
+        // 判断是否是微信浏览器
+        function isWechatBrowser() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            return userAgent.includes('micromessenger');
+        }
+
+        // 从URL参数中获取防红码（code）
+        function getUrlParam(name) {
+            const reg = new RegExp(`(^|&)${name}=([^&]*)(&|$)`);
+            const r = window.location.search.substr(1).match(reg);
+            return r ? decodeURIComponent(r[2]) : null;
+        }
+
+        const code = getUrlParam('code');
+        let countdown = 5; // 跳转倒计时（秒）
+        let jumpTimer = null; // 跳转定时器
+
+        // 根据浏览器类型显示不同页面
+        if (isWechatBrowser()) {
+            // 微信浏览器：显示引导页
+            document.getElementById('wechatGuide').style.display = 'block';
+            document.getElementById('loadingPage').style.display = 'none';
+        } else {
+            // 非微信浏览器：正常处理跳转
+            if (!code) {
+                // 无防红码时显示错误
+                document.getElementById('message').textContent = '参数错误：未找到防红码';
+                document.getElementById('message').classList.add('error');
+                document.querySelector('.spinner').style.display = 'none';
+            } else {
+                // 调用API获取最新跳转地址
+                $.ajax({
+                    url: 'https://cai.qihaobao.com/Mao_admin/api.php', // 后端API地址
+                    type: 'GET',
+                    dataType: 'json',
+                    data: {
+                        mod: 'antired',
+                        action: 'jump',
+                        code: code,
+                        _t: new Date().getTime() // 防止缓存
+                    },
+                    success: function(res) {
+                        if (res.code === 0 && res.data && res.data.url) {
+                            // 成功获取地址，倒计时后跳转
+                            const countdownEl = document.getElementById('countdown');
+                            const messageEl = document.getElementById('message');
+                            messageEl.textContent = '即将跳转到目标地址...';
+                            
+                            jumpTimer = setInterval(() => {
+                                if (countdown > 0) {
+                                    countdownEl.textContent = `倒计时 ${countdown} 秒后自动跳转...`;
+                                    countdown--;
+                                } else {
+                                    clearInterval(jumpTimer);
+                                    window.location.href = res.data.url; // 前端执行跳转
+                                }
+                            }, 1000);
+                        } else {
+                            // 接口返回错误信息
+                            document.getElementById('message').textContent = res.msg || '获取地址失败';
+                            document.getElementById('message').classList.add('error');
+                            document.querySelector('.spinner').style.display = 'none';
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        // 网络错误或接口异常
+                        let errorMsg = '网络错误，无法连接服务器';
+                        try {
+                            // 尝试解析后端返回的错误信息
+                            const res = JSON.parse(xhr.responseText);
+                            errorMsg = res.msg || errorMsg;
+                        } catch (e) {
+                            // 解析失败时显示通用错误
+                        }
+                        document.getElementById('message').textContent = errorMsg;
+                        document.getElementById('message').classList.add('error');
+                        document.querySelector('.spinner').style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        // 防止跳转前关闭页面的提示
+        window.onbeforeunload = function() {
+            if (jumpTimer) {
+                return '正在准备跳转，确定要离开吗？';
+            }
+        };
+    </script>
+</body>
+</html>
